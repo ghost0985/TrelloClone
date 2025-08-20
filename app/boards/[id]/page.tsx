@@ -390,6 +390,7 @@ export default function BoardPage() {
 
   useEffect(() => {
     if (!undo) return;
+
     setUndoSecondsLeft(
       Math.max(0, Math.ceil((undo.expiresAt - Date.now()) / 1000))
     );
@@ -402,7 +403,6 @@ export default function BoardPage() {
       }
       const msLeft = current.expiresAt - Date.now();
       setUndoSecondsLeft(Math.max(0, Math.ceil(msLeft / 1000)));
-
       if (msLeft <= 0) {
         if (current.timer) window.clearTimeout(current.timer);
         window.clearInterval(id);
@@ -411,7 +411,7 @@ export default function BoardPage() {
     }, 250);
 
     return () => window.clearInterval(id);
-  }, [undo?.expiresAt]);
+  }, [undo]);
 
   const isFilterActive = Boolean(
     filters.priority.length || filters.assignee.length || filters.dueDate

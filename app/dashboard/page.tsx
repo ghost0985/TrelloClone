@@ -23,7 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { usePlan } from "@/lib/context/PlanContext";
 import { useBoards } from "@/lib/hooks/useBoards";
-import { Board } from "@/lib/supabase/models";
+import { Board, Column, Task } from "@/lib/supabase/models";
 import { useUser } from "@clerk/nextjs";
 import {
   Filter,
@@ -56,15 +56,17 @@ const initialFilters: Filters = {
 type UndoBoardState = null | {
   snapshot: {
     board: Board;
-    columns: any[];
-    tasks: any[];
+    columns: Column[];
+    tasks: Task[];
   };
   timeoutId: number | null;
   intervalId: number | null;
-  remaining: number; // seconds
+  remaining: number;
 };
 
 const UNDO_SECONDS = 5;
+
+type BoardWithCount = Board & { taskCount: number };
 
 const COLOR_OPTIONS = [
   "bg-blue-500",
@@ -85,7 +87,7 @@ export default function DashbordPage() {
   const { user } = useUser();
   const {
     createBoard,
-    updateBoard, // ← use the new updater
+    updateBoard, 
     boards,
     loading,
     error,
@@ -132,8 +134,7 @@ export default function DashbordPage() {
     };
   }, []);
 
-  // Derived: boards with counts
-  const boardsWithTaskCount = useMemo(
+  const boardsWithTaskCount = useMemo<BoardWithCount[]>(
     () =>
       boards.map((b) => ({
         ...b,
@@ -143,31 +144,29 @@ export default function DashbordPage() {
   );
 
   // Filters
-  const filteredBoards = useMemo(() => {
+  const filteredBoards = useMemo<BoardWithCount[]>(() => {
     const search = filters.search.trim().toLowerCase();
 
-    return boardsWithTaskCount.filter(
-      (board: Board & { taskCount: number }) => {
-        const matchesSearch =
-          !search ||
-          board.title.toLowerCase().includes(search) ||
-          (board.description ?? "").toLowerCase().includes(search);
+    return boardsWithTaskCount.filter((board) => {
+      const matchesSearch =
+        !search ||
+        board.title.toLowerCase().includes(search) ||
+        (board.description ?? "").toLowerCase().includes(search);
 
-        const createdAt = new Date(board.created_at);
-        const matchesDateRange =
-          (!filters.dateRange.start ||
-            createdAt >= new Date(filters.dateRange.start)) &&
-          (!filters.dateRange.end ||
-            createdAt <= new Date(filters.dateRange.end));
+      const createdAt = new Date(board.created_at);
+      const matchesDateRange =
+        (!filters.dateRange.start ||
+          createdAt >= new Date(filters.dateRange.start)) &&
+        (!filters.dateRange.end ||
+          createdAt <= new Date(filters.dateRange.end));
 
-        const { min, max } = filters.taskCount;
-        const matchesTaskCount =
-          (min == null || board.taskCount >= min) &&
-          (max == null || board.taskCount <= max);
+      const { min, max } = filters.taskCount;
+      const matchesTaskCount =
+        (min == null || board.taskCount >= min) &&
+        (max == null || board.taskCount <= max);
 
-        return matchesSearch && matchesDateRange && matchesTaskCount;
-      }
-    );
+      return matchesSearch && matchesDateRange && matchesTaskCount;
+    });
   }, [boardsWithTaskCount, filters]);
 
   const activeFilterCount =
@@ -214,7 +213,6 @@ export default function DashbordPage() {
     }
   }
 
-  // Open Edit (NEW)
   function openEditDialog(b: Board) {
     setEditingBoard(b);
     setEditTitle(b.title);
@@ -312,7 +310,7 @@ export default function DashbordPage() {
             {user?.firstName ?? user?.emailAddresses[0].emailAddress}! 👋
           </h1>
           <p className="text-muted-foreground">
-            Here's what's happening with your boards today.
+            Here&apos;s what&apos;s happening with your boards today.
           </p>
         </div>
 

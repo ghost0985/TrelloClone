@@ -21,7 +21,7 @@ import {
 import Navbar from "@/components/navbar";
 
 export default function HomePage() {
-  const { isSignedIn, user } = useUser();
+  const { isSignedIn } = useUser();
 
   const features = [
     {
