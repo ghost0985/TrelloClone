@@ -61,12 +61,10 @@ type UndoBoardState = null | {
   };
   timeoutId: number | null;
   intervalId: number | null;
-  remaining: number;
+  remaining: number; // seconds
 };
 
 const UNDO_SECONDS = 5;
-
-type BoardWithCount = Board & { taskCount: number };
 
 const COLOR_OPTIONS = [
   "bg-blue-500",
@@ -83,11 +81,14 @@ const COLOR_OPTIONS = [
   "bg-emerald-500",
 ];
 
+// Strongly-typed board with a count for UI usage
+type BoardWithCount = Board & { taskCount: number };
+
 export default function DashbordPage() {
   const { user } = useUser();
   const {
     createBoard,
-    updateBoard, 
+    updateBoard,
     boards,
     loading,
     error,
@@ -111,7 +112,7 @@ export default function DashbordPage() {
   const [newBoardColor, setNewBoardColor] = useState("bg-blue-500");
   const [showUpgradeDialog, setShowUpgradeDialog] = useState<boolean>(false);
 
-  // Edit Board dialog (NEW)
+  // Edit Board dialog
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingBoard, setEditingBoard] = useState<Board | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -134,7 +135,8 @@ export default function DashbordPage() {
     };
   }, []);
 
-  const boardsWithTaskCount = useMemo<BoardWithCount[]>(
+  // Derived: boards with counts (typed)
+  const boardsWithTaskCount: BoardWithCount[] = useMemo(
     () =>
       boards.map((b) => ({
         ...b,
@@ -143,8 +145,8 @@ export default function DashbordPage() {
     [boards, boardCounts]
   );
 
-  // Filters
-  const filteredBoards = useMemo<BoardWithCount[]>(() => {
+  // Filters (typed)
+  const filteredBoards: BoardWithCount[] = useMemo(() => {
     const search = filters.search.trim().toLowerCase();
 
     return boardsWithTaskCount.filter((board) => {
@@ -213,6 +215,7 @@ export default function DashbordPage() {
     }
   }
 
+  // Open Edit
   function openEditDialog(b: Board) {
     setEditingBoard(b);
     setEditTitle(b.title);
@@ -221,7 +224,7 @@ export default function DashbordPage() {
     setIsEditOpen(true);
   }
 
-  // Save Edit (NEW)
+  // Save Edit
   async function handleSaveEdit(e: React.FormEvent) {
     e.preventDefault();
     if (!editingBoard || savingEdit) return;
@@ -249,7 +252,7 @@ export default function DashbordPage() {
     e.stopPropagation();
 
     const ok = window.confirm(
-      "Delete this board and all its columns & tasks? You’ll have a short Undo window."
+      "Delete this board and all its columns & tasks? You\u2019ll have a short Undo window."
     );
     if (!ok) return;
 
@@ -306,11 +309,10 @@ export default function DashbordPage() {
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
-            Welcome back,{" "}
-            {user?.firstName ?? user?.emailAddresses[0].emailAddress}! 👋
+            Welcome back, {user?.firstName ?? user?.emailAddresses[0].emailAddress}! 👋
           </h1>
           <p className="text-muted-foreground">
-            Here&apos;s what&apos;s happening with your boards today.
+            Here&rsquo;s what&rsquo;s happening with your boards today.
           </p>
         </div>
 
@@ -323,12 +325,10 @@ export default function DashbordPage() {
                   <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                     Total Boards
                   </p>
-                  <p className="text-xl sm:text-2xl font-bold text-foreground">
-                    {boards.length}
-                  </p>
+                  <p className="text-xl sm:text-2xl font-bold text-foreground">{boards.length}</p>
                 </div>
                 <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg flex items-center justify-center bg-secondary">
-                  <Trello className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
+                  <Trello className="h-5 w-5 sm:h-6 sm:w-6" />
                 </div>
               </div>
             </CardContent>
@@ -341,12 +341,10 @@ export default function DashbordPage() {
                   <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                     Active Projects
                   </p>
-                  <p className="text-xl sm:text-2xl font-bold text-foreground">
-                    {boards.length}
-                  </p>
+                  <p className="text-xl sm:text-2xl font-bold text-foreground">{boards.length}</p>
                 </div>
                 <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg flex items-center justify-center bg-secondary">
-                  <Rocket className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
+                  <Rocket className="h-5 w-5 sm:h-6 sm:w-6" />
                 </div>
               </div>
             </CardContent>
@@ -370,7 +368,7 @@ export default function DashbordPage() {
                     }
                   </p>
                 </div>
-                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg flex items-center justify-center bg-purple-100">
+                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg flex items-center justify-center bg-secondary">
                   📊
                 </div>
               </div>
@@ -384,12 +382,10 @@ export default function DashbordPage() {
                   <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                     Total Boards
                   </p>
-                  <p className="text-xl sm:text-2xl font-bold text-foreground">
-                    {boards.length}
-                  </p>
+                  <p className="text-xl sm:text-2xl font-bold text-foreground">{boards.length}</p>
                 </div>
                 <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg flex items-center justify-center bg-secondary">
-                  <Trello className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
+                  <Trello className="h-5 w-5 sm:h-6 sm:w-6" />
                 </div>
               </div>
             </CardContent>
@@ -400,12 +396,8 @@ export default function DashbordPage() {
         <div className="mb-6 sm:mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 space-y-4 sm:space-y-0">
             <div>
-              <h2 className="text-xl sm:text-2xl font-bold text-foreground">
-                Your Boards
-              </h2>
-              <p className="text-muted-foreground">
-                Manage your projects and tasks
-              </p>
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground">Your Boards</h2>
+              <p className="text-muted-foreground">Manage your projects and tasks</p>
               {isFreeUser && (
                 <p className="text-sm text-muted-foreground mt-1">
                   Free Plan: {boards.length}/1 boards used
@@ -431,11 +423,7 @@ export default function DashbordPage() {
                 </Button>
               </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsFilterOpen(true)}
-              >
+              <Button variant="outline" size="sm" onClick={() => setIsFilterOpen(true)}>
                 <Filter />
                 {` Filter${activeFilterCount ? ` (${activeFilterCount})` : ""}`}
               </Button>
@@ -470,9 +458,7 @@ export default function DashbordPage() {
 
           {!loading &&
             (filteredBoards.length === 0 ? (
-              <div className="text-sm text-muted-foreground">
-                No boards match your filters.
-              </div>
+              <div className="text-sm text-muted-foreground">No boards match your filters.</div>
             ) : viewMode === "grid" ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                 {filteredBoards.map((board) => (
@@ -483,14 +469,11 @@ export default function DashbordPage() {
                           <div className="flex items-center gap-2">
                             <div className={`w-4 h-4 ${board.color} rounded`} />
                             <Badge className="text-xs" variant="secondary">
-                              {"taskCount" in board
-                                ? (board as any).taskCount
-                                : 0}{" "}
-                              tasks
+                              {board.taskCount} tasks
                             </Badge>
                           </div>
                           <div className="flex items-center gap-1">
-                            {/* NEW: Edit */}
+                            {/* Edit */}
                             <Button
                               variant="ghost"
                               size="icon"
@@ -523,14 +506,8 @@ export default function DashbordPage() {
                           {board.description}
                         </CardDescription>
                         <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs text-muted-foreground space-y-1 sm:space-y-0">
-                          <span>
-                            Created{" "}
-                            {new Date(board.created_at).toLocaleDateString()}
-                          </span>
-                          <span>
-                            Updated{" "}
-                            {new Date(board.updated_at).toLocaleDateString()}
-                          </span>
+                          <span>Created {new Date(board.created_at).toLocaleDateString()}</span>
+                          <span>Updated {new Date(board.updated_at).toLocaleDateString()}</span>
                         </div>
                       </CardContent>
                     </Card>
@@ -571,14 +548,9 @@ export default function DashbordPage() {
                         <CardHeader className="pb-3">
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
-                              <div
-                                className={`w-4 h-4 ${board.color} rounded`}
-                              />
+                              <div className={`w-4 h-4 ${board.color} rounded`} />
                               <Badge className="text-xs" variant="secondary">
-                                {"taskCount" in board
-                                  ? (board as any).taskCount
-                                  : 0}{" "}
-                                tasks
+                                {board.taskCount} tasks
                               </Badge>
                             </div>
                             <div className="flex items-center gap-1">
@@ -613,14 +585,8 @@ export default function DashbordPage() {
                             {board.description}
                           </CardDescription>
                           <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs text-muted-foreground space-y-1 sm:space-y-0">
-                            <span>
-                              Created{" "}
-                              {new Date(board.created_at).toLocaleDateString()}
-                            </span>
-                            <span>
-                              Updated{" "}
-                              {new Date(board.updated_at).toLocaleDateString()}
-                            </span>
+                            <span>Created {new Date(board.created_at).toLocaleDateString()}</span>
+                            <span>Updated {new Date(board.updated_at).toLocaleDateString()}</span>
                           </div>
                         </CardContent>
                       </Card>
@@ -673,8 +639,8 @@ export default function DashbordPage() {
               <Input
                 id="filterSearch"
                 placeholder="Search board titles..."
-                value={filters.search}
                 className="focus-brand"
+                value={filters.search}
                 onChange={(e) =>
                   setFilters((prev) => ({ ...prev, search: e.target.value }))
                 }
@@ -691,8 +657,8 @@ export default function DashbordPage() {
                   <Input
                     id="filterStart"
                     type="date"
-                    value={filters.dateRange.start ?? ""}
                     className="focus-brand"
+                    value={filters.dateRange.start ?? ""}
                     onChange={(e) =>
                       setFilters((prev) => ({
                         ...prev,
@@ -711,8 +677,8 @@ export default function DashbordPage() {
                   <Input
                     id="filterEnd"
                     type="date"
-                    value={filters.dateRange.end ?? ""}
                     className="focus-brand"
+                    value={filters.dateRange.end ?? ""}
                     onChange={(e) =>
                       setFilters((prev) => ({
                         ...prev,
@@ -739,8 +705,8 @@ export default function DashbordPage() {
                     type="number"
                     min="0"
                     placeholder="Min tasks"
-                    value={filters.taskCount.min ?? ""}
                     className="focus-brand"
+                    value={filters.taskCount.min ?? ""}
                     onChange={(e) =>
                       setFilters((prev) => ({
                         ...prev,
@@ -761,8 +727,8 @@ export default function DashbordPage() {
                     type="number"
                     min="0"
                     placeholder="Max tasks"
-                    value={filters.taskCount.max ?? ""}
                     className="focus-brand"
+                    value={filters.taskCount.max ?? ""}
                     onChange={(e) =>
                       setFilters((prev) => ({
                         ...prev,
@@ -782,9 +748,7 @@ export default function DashbordPage() {
             <Button variant="outline" onClick={clearFilters}>
               Clear filters
             </Button>
-            <Button onClick={() => setIsFilterOpen(false)}>
-              Apply filters
-            </Button>
+            <Button onClick={() => setIsFilterOpen(false)}>Apply filters</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -794,9 +758,7 @@ export default function DashbordPage() {
         <DialogContent className="w-[95vw] max-w-[425px] mx-auto bg-card">
           <DialogHeader>
             <DialogTitle>Create Board</DialogTitle>
-            <p className="text-sm text-muted-foreground">
-              Name your board and pick a color
-            </p>
+            <p className="text-sm text-muted-foreground">Name your board and pick a color</p>
           </DialogHeader>
 
           <form className="space-y-4" onSubmit={handleSubmitCreateBoard}>
@@ -807,8 +769,8 @@ export default function DashbordPage() {
                 value={newBoardTitle}
                 onChange={(e) => setNewBoardTitle(e.target.value)}
                 placeholder="e.g. Marketing Roadmap"
-                required
                 className="focus-brand"
+                required
               />
             </div>
 
@@ -843,11 +805,7 @@ export default function DashbordPage() {
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsCreateOpen(false)}
-              >
+              <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={creating}>
@@ -865,7 +823,7 @@ export default function DashbordPage() {
         </DialogContent>
       </Dialog>
 
-      {/* EDIT Board Dialog (NEW) */}
+      {/* EDIT Board Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="w-[95vw] max-w-[425px] mx-auto bg-card">
           <DialogHeader>
@@ -883,8 +841,8 @@ export default function DashbordPage() {
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
                 placeholder="Board title"
-                required
                 className="focus-brand"
+                required
               />
             </div>
 
@@ -919,11 +877,7 @@ export default function DashbordPage() {
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsEditOpen(false)}
-              >
+              <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={savingEdit}>
@@ -947,15 +901,11 @@ export default function DashbordPage() {
           <DialogHeader>
             <DialogTitle>Upgrade To Create More Boards</DialogTitle>
             <p className="text-sm text-muted-foreground">
-              Free users can only create one board. Upgrade to Pro or Enterprise
-              to create unlimited boards.
+              Free users can only create one board. Upgrade to Pro or Enterprise to create unlimited boards.
             </p>
           </DialogHeader>
           <div className="flex justify-end space-x-4 pt-4">
-            <Button
-              variant="outline"
-              onClick={() => setShowUpgradeDialog(false)}
-            >
+            <Button variant="outline" onClick={() => setShowUpgradeDialog(false)}>
               Cancel
             </Button>
             <Button onClick={() => router.push("/pricing")}>View Plans</Button>

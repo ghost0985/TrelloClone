@@ -1,8 +1,7 @@
-// File: src/lib/hooks/useBoards.ts
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   boardDataService,
   boardService,
@@ -13,53 +12,39 @@ import {
 import { Board, Column, ColumnWithTasks, Task } from "../supabase/models";
 import { useSupabase } from "../supabase/SupabaseProvider";
 
-/** Snapshot for deleting/restoring a whole board */
 type BoardDeletedSnapshot = {
   board: Board;
   columns: Column[];
   tasks: Task[];
 };
 
-/** Snapshot for deleting/restoring a single task */
 type DeletedSnapshot = {
   task: Task;
   columnId: string;
   index: number;
 };
 
-/* ──────────────────────────────────────────────────────────────
-   Helpers
-   ────────────────────────────────────────────────────────────── */
-
-/** Convert empty strings to null, drop undefined, keep other values as-is */
-function sanitizeTaskUpdates(updates: Partial<Task>): Partial<Task> {
-  const out: Partial<Task> = {};
-  for (const [key, value] of Object.entries(updates) as [keyof Task, any][]) {
-    if (value === undefined) continue;
-    if (key === "due_date" || key === "description" || key === "assignee") {
-      out[key] = value === "" ? null : value;
-    } else {
-      out[key] = value;
-    }
-  }
-  return out;
-}
-
-/* ──────────────────────────────────────────────────────────────
-   useBoards (list page)
-   ────────────────────────────────────────────────────────────── */
 export function useBoards() {
   const { user } = useUser();
   const { supabase } = useSupabase();
 
   const [boards, setBoards] = useState<Board[]>([]);
   const [boardCounts, setBoardCounts] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const ready = useMemo(() => Boolean(user?.id && supabase), [user?.id, supabase]);
+  const ready = useMemo(
+    () => Boolean(user?.id && supabase),
+    [user?.id, supabase]
+  );
 
-  const loadBoards = useCallback(async () => {
+  useEffect(() => {
+    if (!ready) return;
+    void loadBoards();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
+
+  async function loadBoards() {
     if (!user?.id || !supabase) return;
     try {
       setLoading(true);
@@ -73,16 +58,10 @@ export function useBoards() {
       setBoardCounts(counts);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load boards.");
-      console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [user?.id, supabase]);
-
-  useEffect(() => {
-    if (!ready) return;
-    void loadBoards();
-  }, [ready, loadBoards]);
+  }
 
   async function createBoard(boardData: {
     title: string;
@@ -91,33 +70,38 @@ export function useBoards() {
   }) {
     if (!user?.id || !supabase) throw new Error("Not ready yet.");
     try {
-      const newBoard = await boardDataService.createBoardWithDefaultColumns(supabase, {
-        ...boardData,
-        userId: user.id,
-      });
+      const newBoard = await boardDataService.createBoardWithDefaultColumns(
+        supabase,
+        {
+          ...boardData,
+          userId: user.id,
+        }
+      );
       setBoards((prev) => [newBoard, ...prev]);
       setBoardCounts((prev) => ({ ...prev, [newBoard.id]: 0 }));
       return newBoard;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create board.");
-      console.error(err);
     }
   }
 
-  async function updateBoard(id: string, updates: Partial<Board>): Promise<Board | undefined> {
+  async function updateBoard(
+    id: string,
+    updates: Partial<Board>
+  ): Promise<Board | undefined> {
     if (!supabase) throw new Error("Not ready yet");
     try {
-      // Let DB trigger handle updated_at
       const updated = await boardService.updateBoard(supabase, id, updates);
       setBoards((prev) => prev.map((b) => (b.id === id ? updated : b)));
       return updated;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update board.");
-      console.error(err);
     }
   }
 
-  async function deleteBoard(boardId: string): Promise<BoardDeletedSnapshot | undefined> {
+  async function deleteBoard(
+    boardId: string
+  ): Promise<BoardDeletedSnapshot | undefined> {
     if (!supabase) throw new Error("Not ready yet");
 
     let snapshot: BoardDeletedSnapshot | undefined;
@@ -129,22 +113,22 @@ export function useBoards() {
         tasks: deep.tasks,
       };
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to snapshot board.");
-      console.error(err);
+      setError(
+        err instanceof Error ? err.message : "Failed to snapshot board."
+      );
       return;
     }
 
-    // Optimistic remove locally
     setBoards((prev) => prev.filter((b) => b.id !== boardId));
-    setBoardCounts((prev) =>
-      Object.fromEntries(Object.entries(prev).filter(([id]) => id !== boardId))
-    );
+    setBoardCounts((prev) => {
+      const { [boardId]: _removed, ...rest } = prev;
+      return rest;
+    });
 
     try {
       await boardService.deleteBoard(supabase, boardId);
       return snapshot;
     } catch (err) {
-      // Rollback on failure
       if (snapshot) {
         setBoards((prev) => [snapshot.board, ...prev]);
         setBoardCounts((prev) => ({
@@ -153,15 +137,15 @@ export function useBoards() {
         }));
       }
       setError(err instanceof Error ? err.message : "Failed to delete board.");
-      console.error(err);
     }
   }
 
-  async function restoreBoard(snapshot: BoardDeletedSnapshot): Promise<Board | undefined> {
+  async function restoreBoard(
+    snapshot: BoardDeletedSnapshot
+  ): Promise<Board | undefined> {
     if (!supabase) throw new Error("Not ready yet.");
 
     try {
-      // Recreate board
       const recreateBoard = await boardService.createBoard(supabase, {
         title: snapshot.board.title,
         description: snapshot.board.description,
@@ -169,21 +153,23 @@ export function useBoards() {
         user_id: snapshot.board.user_id,
       });
 
-      // Recreate columns (preserve order)
       const colIdMap = new Map<string, string>();
-      for (const c of [...snapshot.columns].sort(
-        (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
-      )) {
+
+      // Keep original order
+      const sortedColumns = [...snapshot.columns].sort(
+        (a, b) => a.sort_order - b.sort_order
+      );
+
+      for (const c of sortedColumns) {
         const newCol = await columnService.createColumn(supabase, {
           title: c.title,
-          sort_order: c.sort_order ?? 0,
+          sort_order: c.sort_order,
           board_id: recreateBoard.id,
           user_id: c.user_id,
         });
         colIdMap.set(c.id, newCol.id);
       }
 
-      // Recreate tasks
       for (const t of snapshot.tasks) {
         const newColumnId = colIdMap.get(t.column_id);
         if (!newColumnId) continue;
@@ -193,7 +179,7 @@ export function useBoards() {
           assignee: t.assignee,
           due_date: t.due_date,
           priority: (t.priority as "low" | "medium" | "high") ?? "medium",
-          sort_order: t.sort_order ?? 0,
+          sort_order: t.sort_order,
           column_id: newColumnId,
         });
       }
@@ -207,7 +193,6 @@ export function useBoards() {
       return recreateBoard;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to restore board.");
-      console.error(err);
     }
   }
 
@@ -224,40 +209,43 @@ export function useBoards() {
   };
 }
 
-/* ──────────────────────────────────────────────────────────────
-   useBoard (single board page)
-   ────────────────────────────────────────────────────────────── */
 export function useBoard(boardId: string) {
   const { supabase } = useSupabase();
   const { user } = useUser();
 
   const [board, setBoard] = useState<Board | null>(null);
   const [columns, setColumns] = useState<ColumnWithTasks[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const ready = useMemo(() => Boolean(boardId && supabase), [boardId, supabase]);
-
-  const loadBoard = useCallback(async () => {
-    if (!boardId || !supabase) return;
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await boardDataService.getBoardwithColumns(supabase, boardId);
-      setBoard(data.board);
-      setColumns(data.columnsWithTasks);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load board.");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [boardId, supabase]);
+  const ready = useMemo(
+    () => Boolean(boardId && supabase),
+    [boardId, supabase]
+  );
 
   useEffect(() => {
     if (!ready) return;
     void loadBoard();
-  }, [ready, loadBoard]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
+
+  async function loadBoard() {
+    if (!boardId || !supabase) return;
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await boardDataService.getBoardwithColumns(
+        supabase,
+        boardId
+      );
+      setBoard(data.board);
+      setColumns(data.columnsWithTasks);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load board.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function updateBoardLocal(id: string, updates: Partial<Board>) {
     if (!supabase) throw new Error("Not ready yet");
@@ -266,8 +254,9 @@ export function useBoard(boardId: string) {
       setBoard(updated);
       return updated;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update the board.");
-      console.error(err);
+      setError(
+        err instanceof Error ? err.message : "Failed to update the board."
+      );
     }
   }
 
@@ -283,15 +272,14 @@ export function useBoard(boardId: string) {
   ) {
     if (!supabase) throw new Error("Not ready yet");
     try {
-      const sortOrder = columns.find((c) => c.id === columnId)?.tasks.length ?? 0;
       const newTask = await taskService.createTask(supabase, {
         title: taskData.title,
-        description: taskData.description ?? null,
-        assignee: taskData.assignee ?? null,
-        due_date: taskData.dueDate ?? null,
+        description: taskData.description || null,
+        assignee: taskData.assignee || null,
+        due_date: taskData.dueDate || null,
         column_id: columnId,
-        sort_order: sortOrder,
-        priority: taskData.priority ?? "medium",
+        sort_order: columns.find((c) => c.id === columnId)?.tasks.length || 0,
+        priority: taskData.priority || "medium",
       });
 
       setColumns((prev) =>
@@ -302,84 +290,37 @@ export function useBoard(boardId: string) {
 
       return newTask;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create the task.");
-      console.error(err);
+      setError(
+        err instanceof Error ? err.message : "Failed to create the task."
+      );
     }
   }
 
-  async function moveTask(taskId: string, newColumnId: string, newOrder: number) {
+  async function moveTask(
+    taskId: string,
+    newColumnId: string,
+    newOrder: number
+  ) {
     if (!supabase) throw new Error("Not ready yet");
     try {
-      const updated = await taskService.moveTask(supabase, taskId, newColumnId, newOrder);
+      await taskService.moveTask(supabase, taskId, newColumnId, newOrder);
 
       setColumns((prev) => {
         const next = prev.map((c) => ({ ...c, tasks: [...c.tasks] }));
-
-        // Remove from current location
         for (const c of next) {
           const idx = c.tasks.findIndex((t) => t.id === taskId);
-          if (idx !== -1) {
-            c.tasks.splice(idx, 1);
-            break;
-          }
+          if (idx !== -1) c.tasks.splice(idx, 1);
         }
-
-        // Insert to target and sort by sort_order if present
-        const target = next.find((c) => c.id === updated.column_id);
+        const target = next.find((c) => c.id === newColumnId);
         if (target) {
-          target.tasks.push(updated);
-          target.tasks.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+          const pos = Math.max(0, Math.min(newOrder, target.tasks.length));
+          // optimistic placeholder; real data arrives on subsequent updates
+          target.tasks.splice(pos, 0, { id: taskId } as unknown as Task);
         }
-
         return next;
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to move task");
-      console.error(err);
-      // Fallback could be: void loadBoard();
-    }
-  }
-
-  async function updateTask(taskId: string, updates: Partial<Task>) {
-    if (!supabase) throw new Error("Not ready yet");
-    try {
-      // 🔧 SANITIZE: convert "" → null for text/date fields and drop undefined
-      const clean = sanitizeTaskUpdates(updates);
-
-      const updatedTask = await taskService.updateTask(supabase, taskId, clean);
-      if (!updatedTask) {
-        // If backend returned nothing (shouldn't happen), hard refresh the board
-        await loadBoard();
-        return;
-      }
-
-      // Update UI to match server result (and move between columns if needed)
-      setColumns((prev) => {
-        const next = prev.map((c) => ({ ...c, tasks: [...c.tasks] }));
-
-        // Remove from wherever it currently lives
-        for (const c of next) {
-          const idx = c.tasks.findIndex((t) => t.id === taskId);
-          if (idx !== -1) {
-            c.tasks.splice(idx, 1);
-            break;
-          }
-        }
-
-        // Insert into its (possibly new) column
-        const target = next.find((c) => c.id === updatedTask.column_id);
-        if (target) {
-          target.tasks.push(updatedTask);
-          target.tasks.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-        }
-
-        return next;
-      });
-
-      return updatedTask;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update task.");
-      console.error(err);
     }
   }
 
@@ -395,37 +336,79 @@ export function useBoard(boardId: string) {
       setColumns((prev) => [...prev, { ...newColumn, tasks: [] }]);
       return newColumn;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create new column");
-      console.error(err);
+      setError(
+        err instanceof Error ? err.message : "Failed to create new column"
+      );
     }
   }
 
   async function updateColumn(columnId: string, title: string) {
     if (!supabase) throw new Error("Not ready yet");
     try {
-      const updatedColumn = await columnService.updateColumnTitle(supabase, columnId, title);
+      const updatedColumn = await columnService.updateColumnTitle(
+        supabase,
+        columnId,
+        title
+      );
       setColumns((prev) =>
-        prev.map((col) => (col.id === columnId ? { ...col, ...updatedColumn } : col))
+        prev.map((col) =>
+          col.id === columnId ? { ...col, ...updatedColumn } : col
+        )
       );
       return updatedColumn;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update column");
-      console.error(err);
     }
   }
 
-  async function deleteTask(taskId: string): Promise<DeletedSnapshot | undefined> {
+  async function updateTask(taskId: string, updates: Partial<Task>) {
+    if (!supabase) throw new Error("Not ready yet");
+    try {
+      const updatedTask = await taskService.updateTask(
+        supabase,
+        taskId,
+        updates
+      );
+
+      setColumns((prev) => {
+        const next = prev.map((c) => ({ ...c, tasks: [...c.tasks] }));
+        // remove from its old column
+        for (const c of next) {
+          const idx = c.tasks.findIndex((t) => t.id === taskId);
+          if (idx !== -1) {
+            c.tasks.splice(idx, 1);
+            break;
+          }
+        }
+        // add to the column it now belongs to
+        const target = next.find((c) => c.id === updatedTask.column_id);
+        if (target) target.tasks.push(updatedTask);
+        return next;
+      });
+
+      return updatedTask;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update task.");
+    }
+  }
+
+  async function deleteTask(
+    taskId: string
+  ): Promise<DeletedSnapshot | undefined> {
     if (!supabase) throw new Error("Not ready yet");
 
-    const containing = columns.find((c) => c.tasks.some((t) => t.id === taskId));
+    const containing = columns.find((c) =>
+      c.tasks.some((t) => t.id === taskId)
+    );
     if (!containing) return;
     const index = containing.tasks.findIndex((t) => t.id === taskId);
     const task = containing.tasks[index];
 
-    // Optimistic remove
     setColumns((prev) =>
       prev.map((c) =>
-        c.id === containing.id ? { ...c, tasks: c.tasks.filter((t) => t.id !== taskId) } : c
+        c.id === containing.id
+          ? { ...c, tasks: c.tasks.filter((t) => t.id !== taskId) }
+          : c
       )
     );
 
@@ -433,19 +416,22 @@ export function useBoard(boardId: string) {
       await taskService.deleteTask(supabase, taskId);
       return { task, columnId: containing.id, index };
     } catch (err) {
-      // Rollback on failure
+      // rollback UI
       setColumns((prev) =>
         prev.map((c) =>
           c.id === containing.id
             ? {
                 ...c,
-                tasks: [...c.tasks.slice(0, index), task, ...c.tasks.slice(index)],
+                tasks: [
+                  ...c.tasks.slice(0, index),
+                  task,
+                  ...c.tasks.slice(index),
+                ],
               }
             : c
         )
       );
       setError(err instanceof Error ? err.message : "Failed to delete task.");
-      console.error(err);
     }
   }
 
