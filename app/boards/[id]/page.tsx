@@ -112,7 +112,7 @@ function DroppableColumn({
             <DialogTrigger asChild>
               <Button
                 variant="ghost"
-                className="w-full mt-3 text-gray-500 hover:text-gray-700 dark:text-muted-foreground"
+                className="w-full mt-3 text-gray-500 hover:!text-blue-600 dark:text-muted-foreground"
               >
                 <Plus />
                 Add Task
@@ -852,7 +852,7 @@ export default function BoardPage() {
               <div className="w-full lg:flex-shrink-0 lg:w-80">
                 <Button
                   variant="outline"
-                  className="w-full h-full min-h-[200px] border-dashed border-2 text-muted-foreground transition-colors hover:border-blue-600 hover:text-blue-600"
+                  className="w-full h-full min-h-[200px] border-dashed border-2 text-muted-foreground transition-colors hover:!border-blue-600 hover:text-blue-600"
                   onClick={() => setIsCreatingColumn(true)}
                 >
                   <Plus />
